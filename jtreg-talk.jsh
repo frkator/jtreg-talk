@@ -353,6 +353,109 @@ System.out.println("PASS");
 //
 // This idea transfers directly to CI/CD, security scans, data pipelines and distributed verification systems.
 
+// # A real tier1 run
+// From the JDK checkout: the [`test/jdk:tier1` group](https://github.com/openjdk/jdk/blob/master/test/jdk/TEST.groups), not all OpenJDK tier1 suites.
+//
+// ```bash
+// STATS='run=%r passed=%p passedNotSkipped=%P failed=%f errors=%e failedOrError=%F'
+// STATS+=' skipped=%s notRun=%n excluded=%x notMatched=%X keywords=%k requires=%R'
+// STATS+=' priorStatus=%S timeLimit=%t%?{ modules=m}%?{ otherFilters=o}'
+//
+// time JTREG_JAVA="$(readlink -f "$(command -v java)")" \
+//   ~/apps/jtreg-8.3+1/bin/jtreg \
+//   -concurrency:10 -othervm -ea -esa \
+//   -verbose:all,time -retain:all -report:executed \
+//   -J-Djavatest.report.kinds=html,text,xml -xml -automatic \
+//   "-J-Djtreg.stats.format=$STATS" \
+//   -w:build/demo/tiers/work \
+//   -r:build/demo/tiers/report \
+//   test/jdk:tier1
+// ```
+//
+// `-J-Djtreg.stats.format` configures the launcher's summary, not the test JVM. `STATS` is the same format string, split into Bash assignments.
+// `-concurrency:10` permits ten simultaneous jtreg tests; it does not fix the total number of JVMs or threads.
+
+// # The run, as reported
+// Recorded output; summary counts annotated below.
+//
+// ```text
+// run=2610                 jtreg results: passed + failed + errors
+// passed=2423              Includes the runtime-skipped test
+// passedNotSkipped=2422    Passed minus runtime skips
+// failed=93               Test reported failure
+// errors=94               Test could not be evaluated normally; see its .jtr
+// failedOrError=187        failed + errors = 93 + 94
+// skipped=1               Runtime SkippedException; already counted in passed
+// notRun=0                NOT_RUN status, not the number rejected by filters
+// excluded=0              Rejected by an exclude/problem list
+// notMatched=0            Rejected because absent from a supplied match list
+// keywords=9              Keyword filtering; -automatic excludes manual tests
+// requires=34             Unsatisfied @requires conditions
+// priorStatus=0           Previous result did not match the -status selection
+// timeLimit=0             Declared-timeout filtering, NOT runtime timeouts
+//
+// Framework-based tests: 246,660 = 46,916 TestNG + 199,744 JUnit
+//   TestNG: reported test cases run, including failures and skips
+//   JUnit: test cases found, not necessarily started or passed
+//   Many framework cases can belong to one jtreg result; do not add to run.
+//
+// Report written to /home/linski/workspace/jdk/build/demo/tiers/report/html/report.html
+// Results written to /home/linski/workspace/jdk/build/demo/tiers/work
+// Error: Some tests failed or other problems occurred.
+//
+// real    44m58.062s
+// user    396m22.711s
+// sys     23m56.597s
+// ```
+//
+// | Timing | Meaning |
+// |---|---|
+// | `real` | Elapsed wall-clock time: just under 45 minutes. |
+// | `user` | Accumulated user-space CPU time for the command and its children. |
+// | `sys` | Accumulated kernel CPU time for the command and its children. |
+//
+// CPU time adds across concurrent processes/threads, so it can exceed elapsed time. This is one measured run, not a tier1 duration guarantee.
+// **187 failed/error results make this an unsuccessful run.** The `.jtr` files explain why; the summary alone does not establish 187 JDK bugs.
+
+// # What the result counts mean
+// These are **jtreg test-description results**, not Java methods or assertions.
+//
+// | Counter | Value | Meaning |
+// |---|---:|---|
+// | `run` (`%r`) | 2610 | Passed + failed + error results. |
+// | `passed` (`%p`) | 2423 | Passing status, including jtreg runtime skips. |
+// | `passedNotSkipped` (`%P`) | 2422 | Passed minus skipped. |
+// | `failed` (`%f`) | 93 | Test reported failure. |
+// | `errors` (`%e`) | 94 | Test could not be evaluated normally; inspect the `.jtr` reason. |
+// | `failedOrError` (`%F`) | 187 | Failed + error results. |
+// | `skipped` (`%s`) | 1 | Executed, then threw `jtreg.SkippedException`; already included in passed. |
+// | `notRun` (`%n`) | 0 | Results with `NOT_RUN` status; not the filter-rejection total. |
+//
+// **2610 = 2423 + 93 + 94; 2423 = 2422 + 1; 187 = 93 + 94.** [Counter definitions (jtreg 8.3+1)](https://github.com/openjdk/jtreg/blob/jtreg-8.3%2B1/src/share/classes/com/sun/javatest/regtest/report/TestStats.java).
+//
+// **Framework-based tests are a different counting unit:** 246,660 = 46,916 TestNG + 199,744 JUnit.
+// TestNG contributes its reported total tests run; JUnit contributes tests found, not just tests started or passed. Parameterized cases can multiply these counts.
+// One jtreg result can cover many framework cases. Do not add these counts to `run`, or interpret 246,660 as successful executions. [Framework aggregation](https://github.com/openjdk/jtreg/blob/jtreg-8.3%2B1/src/share/classes/com/sun/javatest/regtest/report/SummaryReporter.java).
+
+// # Filtered out is not the same as skipped
+// Filters reject test descriptions **before execution**; `skipped=1` describes a runtime outcome.
+//
+// | Counter | Value | Reason execution was filtered out |
+// |---|---:|---|
+// | `excluded` (`%x`) | 0 | Exclude/problem list (`-exclude`). |
+// | `notMatched` (`%X`) | 0 | Absent from the allowed match list (`-match`). |
+// | `keywords` (`%k`) | 9 | Keyword selection; here `-automatic` rejects manual tests. |
+// | `requires` (`%R`) | 34 | Unsatisfied `@requires` expression. |
+// | `priorStatus` (`%S`) | 0 | Previous result does not match `-status`. |
+// | `timeLimit` (`%t`) | 0 | Declared timeout exceeds `-timelimit`; not runtime timeouts. |
+// | `modules` (`%?{ modules=m}`) | 0 | Required modules unavailable. |
+// | `otherFilters` (`%?{ otherFilters=o}`) | 0 | Other filter rejections. |
+//
+// `%?{...}` suppresses zero-valued fields: that is why `modules` and `otherFilters` are absent. [Counter implementation](https://github.com/openjdk/jtreg/blob/jtreg-8.3%2B1/src/share/classes/com/sun/javatest/regtest/report/TestStats.java); [selection options](https://openjdk.org/jtreg/command-help.html).
+//
+// **`notRun=0` still coexists with 43 filter rejections: 9 + 34.**
+// Check `build/demo/tiers/report/text/notRun.txt` for filtered test names/reasons. These counters do not establish completeness against an independent required-test inventory.
+
 // # And then there is - magic!
 //
 // <img src="/images/magic.gif" alt="Shia LaBeouf performing magic" style="display: block; width: 450px; max-width: 100%; height: auto; max-height: 55vh; object-fit: contain; margin: 0 auto">
@@ -383,7 +486,7 @@ System.out.println("PASS");
 // 5. At scale, **execution completeness becomes a first-class correctness property**.
 //
 // # Caveats
-// 1. **Version compatibility of the the launcher JDK vs. test JDK vs. jtreg must be compatible - deduce by respecetive release dates.**
+// 1. **Version compatibility of the the launcher JDK vs. test JDK vs. jtreg must be compatible - deduce by respecetive release dates.** [incompatibility effects ticket](https://bugs.openjdk.org/browse/CODETOOLS-7902044)
 //
 // 2. **Actual state is not necessarily the state in your head: verify that the source you read, binaries you execute, and dumps you inspect belong to the experiment you think you ran.**
 //
