@@ -48,7 +48,7 @@ System.out.println("PASS");
 // - <span style="color: green">code that is *supposed* to fail compilation?</span> With jtreg, correctly refusing to compile is a passing test. jtreg checks the platform before running the experiment-not halfway through it.
 // - behaviour that exists only on Windows or only on Linux?
 //
-// Created by Iris Clark in 1997, jtreg remains the JDK’s primary unit and regression test harness.
+// Created by **Iris Clark in 1997**, jtreg remains the JDK’s primary unit, regression and integration test harness.
 
 // # The problem is larger than assertions
 // A conventional unit-test question is roughly:
@@ -161,7 +161,6 @@ System.out.println("PASS");
 //
 // `@test` identifies the test. `@summary` says why it exists. `@run` describes an action.
 //
-// **Where is `@Test`?** There may not be one.
 
 // # The interesting part is HOW it runs
 // Change only the metadata:
