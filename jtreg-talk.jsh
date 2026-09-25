@@ -488,7 +488,7 @@ System.out.println("PASS");
 // # Caveats
 // 1. **Version compatibility of the the launcher JDK vs. test JDK vs. jtreg must be compatible - deduce by respecetive release dates.** [incompatibility effects ticket](https://bugs.openjdk.org/browse/CODETOOLS-7902044)
 //
-// 2. **Actual state is not necessarily the state in your head: verify that the source you read, binaries you execute, and dumps you inspect belong to the experiment you think you ran.**
+// 2. **Actual state is not necessarily the perceived state: verify that the source you read, binaries you execute, and dumps you inspect belong to the experiment you think you ran.**
 //
 // 3. **Passing is not completeness / equal totals can conceal different executions: reconcile what you intended to run with what actually ran - and account for every exclusion, skip, and missing execution across test identities × platforms × configurations.**
 
